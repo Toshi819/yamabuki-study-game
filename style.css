@@ -1,0 +1,117 @@
+body.simple {
+  background: black;
+  color: white;
+  font-family: sans-serif;
+  text-align: center;
+}
+
+body.game {
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: sans-serif;
+  text-align: center;
+}
+
+input {
+  padding: 10px;
+  font-size: 16px;
+  margin: 8px;
+  border-radius: 6px;
+  border: none;
+}
+
+button {
+  padding: 12px 20px;
+  font-size: 16px;
+  border: none;
+  margin: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.simple .main-btn {
+  background: green;
+  color: white;
+}
+
+.game .main-btn {
+  background: #00e5ff;
+  color: black;
+}
+
+.back-btn {
+  background: gray;
+  color: white;
+}
+.stars {
+  margin-top: 5px;
+}
+
+.star {
+  font-size: 22px;
+  color: gray;
+  opacity: 0;
+  transform: scale(0.5);
+  display: inline-block;
+  animation: pop 0.4s forwards;
+}
+
+.star.active {
+  color: gold;
+}
+
+@keyframes pop {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.quiz-btn {
+  width: 90%;
+  max-width: 400px;
+  padding: 18px;
+  margin: 10px auto;
+  font-size: 20px;
+  font-weight: bold;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  display: block;
+  transition: all 0.2s ease;
+}
+
+.quiz-btn:hover {
+  transform: scale(1.05);
+}
+
+.quiz-btn:active {
+  transform: scale(0.97);
+}
+.quiz-btn {
+  width: 90%;
+  max-width: 400px;
+  padding: 18px;
+  margin: 10px auto;
+  font-size: 20px;
+  font-weight: bold;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  display: block;
+  transition: all 0.2s ease;
+}
+
+/* 正解エフェクト */
+.correct {
+  background-color: #4CAF50 !important;
+  color: white;
+  box-shadow: 0 0 20px #4CAF50;
+  transform: scale(1.05);
+}
+
+/* 不正解エフェクト */
+.wrong {
+  background-color: #f44336 !important;
+  color: white;
+  box-shadow: 0 0 20px #f44336;
+}
