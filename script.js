@@ -209,7 +209,11 @@ const quizData = {
 
 };
 
-
+let gameMode = "normal"; // normal or time
+let combo = 0;
+let timer = null;
+let timeLimit = 10; // 秒
+let timeLeft = 0;
 
 
 // ===== データ取得 =====
@@ -280,12 +284,13 @@ function register() {
   };
 
   saveUsers(users);
-
+  localStorage.setItem("currentUser", id);
   app.innerHTML = `
     <h2>登録完了！</h2>
     <p>IDを必ずメモしてください</p>
     <h3>${id}</h3>
-    <button class="main-btn" onclick="showStart()">ホームへ</button>
+    
+    <button class="main-btn" onclick="showHome(users[id])">ホームへ</button>
   `;
 }
 
@@ -327,22 +332,25 @@ function getRank(score) {
   if (score >= 40) return "C";
   return "D";
 }
-function getRoundRank(score) {
-  if (score >= 30) return "S";
-  if (score >= 20) return "A";
-  if (score >= 10) return "B";
-  if (score > 0) return "C";
+function getRoundRank(score, totalQuestions) {
+  const maxScore = totalQuestions * 10;
+  const percent = (score / maxScore) * 100;
+
+  if (percent >= 90) return "S";
+  if (percent >= 70) return "A";
+  if (percent >= 50) return "B";
+  if (percent > 0) return "C";
   return "D";
 }
 
-function getStars(score) {
-  let count = 0;
+function getStars(score, totalQuestions) {
+  const maxScore = totalQuestions * 10;
+  const percent = (score / maxScore) * 100;
 
-  if (score >= 60) count = 3;
-  else if (score >= 30) count = 2;
-  else if (score > 0) count = 1;
-
-  return count; // 数字で返す
+  if (percent >= 90) return 3;
+  if (percent >= 60) return 2;
+  if (percent > 0) return 1;
+  return 0;
 }
 
 function isPerfectClear(subject, user) {
@@ -370,6 +378,7 @@ function showHome(user) {
 
     <button class="main-btn" onclick="startGame()">問題を解く</button>
     <button class="main-btn" onclick="showRanking()">ランキングを見る</button>
+    <button class="main-btn" onclick="toggleTheme()">UIカスタム</button>
     <button class="back-btn" onclick="logout()">ログアウト</button>
   `;
 }
@@ -384,7 +393,7 @@ function startGame() {
 
   subjects.forEach(subject => {
     html += `
-      <button class="main-btn" onclick="selectSubject('${subject}')">
+      <button class="main-btn subject-btn" onclick="selectSubject('${subject}')">
         ${subject}
       </button><br>
     `;
@@ -412,9 +421,14 @@ function showRoundSelect(subject) {
   rounds.forEach(round => {
     const key = subject + "_" + round;
     const score = user.scores && user.scores[key] ? user.scores[key] : 0;
-    const rank = getRoundRank(score);
+    const totalQuestions =
+      quizData[subject] && quizData[subject][round]
+        ? quizData[subject][round].length
+        : 1;
 
-    const starCount = getStars(score);
+    const rank = getRoundRank(score, totalQuestions);
+
+    const starCount = getStars(score, totalQuestions);
 
     // ★ 回ごとに星を作る
     let starsHtml = "";
@@ -461,15 +475,36 @@ function startRound(round) {
   currentIndex = 0;
   score = 0;
 
+  showModeSelect();
+}
+function showModeSelect() {
+  app.innerHTML = `
+    <h2>モード選択</h2>
+    <button class="main-btn" onclick="startQuiz('normal')">通常モード</button>
+    <button class="main-btn" onclick="startQuiz('time')">時間制限モード</button>
+    <button class="back-btn" onclick="startGame()">戻る</button>
+  `;
+}
+function startQuiz(mode) {
+  gameMode = mode;
+  currentIndex = 0;
+  score = 0;
+  combo = 0;
   showQuestion();
 }
-
-
 function showQuestion() {
   const question = currentQuiz[currentIndex];
 
+  let timerHtml = "";
+
+  if (gameMode === "time") {
+    timeLeft = timeLimit;
+    timerHtml = `<h3>残り時間: <span id="timer">${timeLeft}</span> 秒</h3>`;
+  }
+
   let html = `
     <h2>問題 ${currentIndex + 1} / ${currentQuiz.length}</h2>
+    ${timerHtml}
     <p>${question.q}</p>
   `;
 
@@ -482,25 +517,49 @@ function showQuestion() {
       </button>
     `;
   });
-
   html += `<button class="back-btn" onclick="startGame()">中断して戻る</button>`;
-
   app.innerHTML = html;
-}
 
+  if (gameMode === "time") {
+    startTimer();
+  }
+}
+function startTimer() {
+  const timerElement = document.getElementById("timer");
+
+  timer = setInterval(() => {
+    timeLeft--;
+    timerElement.textContent = timeLeft;
+
+    if (timeLeft <= 0) {
+      clearInterval(timer);
+      combo = 0;
+      score -= 5; // タイムオーバー減点
+      nextQuestion();
+    }
+  }, 1000);
+}
 
 function checkAnswer(button, selected) {
   const question = currentQuiz[currentIndex];
-
+  if (gameMode === "time") {
+    clearInterval(timer);
+  }
   const buttons = document.querySelectorAll(".quiz-btn");
 
   // 全ボタンを無効化
   buttons.forEach(btn => btn.disabled = true);
 
   if (selected === question.a) {
-    score += 10;
+    if (gameMode === "time") {
+      combo++;
+      score += 10 + combo; // コンボボーナス
+    } else {
+      score += 10;
+    }
     button.classList.add("correct");
   } else {
+    combo = 0;
     button.classList.add("wrong");
 
     // 正解ボタンも光らせる
@@ -540,7 +599,13 @@ function finishQuiz() {
 
   const currentId = localStorage.getItem("currentUser");
   const users = getUsers();
+  if (gameMode === "time") {
+    const perfectScore = currentQuiz.length * 10;
 
+    if (score >= perfectScore) {
+      score += 5; // パーフェクトボーナス
+    }
+  }
   if (!users[currentId].scores) {
     users[currentId].scores = {};
   }
@@ -577,7 +642,37 @@ function goHome() {
 
 
 function showRanking() {
-  alert("ここにランキングを作る");
+  const users = getUsers();
+  const currentId = localStorage.getItem("currentUser");
+
+  // 配列化
+  const userArray = Object.values(users);
+
+  // スコアで降順ソート
+  userArray.sort((a, b) => b.totalScore - a.totalScore);
+
+  let html = `<h2>🏆 総合ランキング</h2>`;
+
+  userArray.forEach((user, index) => {
+    let medal = "";
+    if (index === 0) medal = "🥇";
+    else if (index === 1) medal = "🥈";
+    else if (index === 2) medal = "🥉";
+
+    const isMe = user.id === currentId ? " (あなた)" : "";
+
+    html += `
+      <div class="rank-card">
+        <h3>${index + 1}位 ${medal}</h3>
+        <p>${user.name}${isMe}</p>
+        <p>スコア: ${user.totalScore}</p>
+      </div>
+    `;
+  });
+
+  html += `<button class="back-btn" onclick="goHome()">戻る</button>`;
+
+  app.innerHTML = html;
 }
 
 function logout() {
@@ -595,3 +690,9 @@ function toggleTheme() {
     document.body.classList.add("simple");
   }
 }
+document.addEventListener("DOMContentLoaded", () => {
+  const v = document.getElementById("version");
+  if (v) {
+    v.innerText = "Version " + APP_VERSION;
+  }
+});
